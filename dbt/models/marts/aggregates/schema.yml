@@ -1,0 +1,284 @@
+version: 2
+
+models:
+  - name: agg_league   
+    description: >
+      This aggregate table summarizes team performance across all matches. 
+      It includes overall statistics, home and away breakdowns, and total points 
+      for each team within their respective leagues.
+
+    columns:
+      - name: TEAM_ID
+        description: "Unique identifier for the team, linked to `dim_teams`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_teams')
+              field: TEAM_ID
+              severity: warn
+
+      - name: TEAM_NAME
+        description: "Full name of the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: Formal_League_Name
+        description: "The official name of the league : English Premiership."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: COUNTRY_NAME
+        description: "The country associated with the team's league."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: short_League_Name
+        description: "The abbreviated version of the league name: Premiership"
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: GamesPlayed
+        description: "Total number of matches played by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: TotalPoints
+        description: "Total points accumulated by the team (3 for a win, 1 for a draw, 0 for a loss)."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: Wins
+        description: "Total matches won by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: Losses
+        description: "Total matches lost by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: Draws
+        description: "Total matches drawn by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: TotalScored
+        description: "Total goals scored by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: TotalConceded
+        description: "Total goals conceded by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: HomeGamesPlayed
+        description: "Total number of home matches played by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: HomeWins
+        description: "Total number of home matches won by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: HomeLosses
+        description: "Total number of home matches lost by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: HomeDraws
+        description: "Total number of home matches drawn by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: HomeScored
+        description: "Total goals scored by the team in home matches."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: HomeConceded
+        description: "Total goals conceded by the team in home matches."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: HomePoints
+        description: "Total points earned in home matches."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: AwayGamesPlayed
+        description: "Total number of away matches played by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: AwayWins
+        description: "Total number of away matches won by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: AwayLosses
+        description: "Total number of away matches lost by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: AwayDraws
+        description: "Total number of away matches drawn by the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: AwayScored
+        description: "Total goals scored by the team in away matches."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: AwayConceded
+        description: "Total goals conceded by the team in away matches."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: AwayPoints
+        description: "Total points earned in away matches."
+        tests:
+          - not_null:
+              severity: warn
+
+  - name: agg_player
+    description: >
+      This aggregate table summarizes player performance across matches.
+      It includes total match involvements, goals, assists, cards, minutes played, 
+      efficiency metrics (per 90 mins), and impact metrics across different roles.
+
+    columns:
+      - name: player_id
+        description: "Unique identifier for the player, linked to `dim_players`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_players')
+              field: player_id
+              severity: warn
+
+      - name: Player_name
+        description: "Full name of the player."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: TEAM_ID
+        description: "Unique identifier for the team, linked to `dim_teams`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_teams')
+              field: TEAM_ID
+              severity: warn
+
+      - name: TEAM_NAME
+        description: "Full name of the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: league_name
+        description: "Name of the league in which the player's team competes."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: Country_name
+        description: "Country where the player's league is based."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: SHORT_NAME
+        description: "Abbreviated version of the team's name."
+        tests:
+          - not_null:
+              severity: warn
+
+  - name: agg_manager
+    description: >
+      This aggregate table summarizes manager performance across matches. 
+      It includes total games played, wins, losses, and draws, along with 
+      home and away performance breakdowns. 
+
+    columns:
+      - name: manager_id
+        description: "Unique identifier for the manager, linked to `dim_managers`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_managers')
+              field: manager_id
+              severity: warn
+
+      - name: manager_name
+        description: "Full name of the manager."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: team_id
+        description: "Unique identifier for the team managed, linked to `dim_teams`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_teams')
+              field: team_id
+              severity: warn
+
+      - name: total_games_played
+        description: "Total number of matches the manager has led the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: games_won_pct
+        description: "Percentage of games won by the manager."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: games_lost_pct
+        description: "Percentage of games lost by the manager."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: games_drawn_pct
+        description: "Percentage of games drawn by the manager."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: home_games_played
+        description: "Total number of home matches managed."
+        tests:
+          - not_null:
+              severity: warn

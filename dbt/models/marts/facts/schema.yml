@@ -1,0 +1,275 @@
+version: 2
+
+models:
+  - name: fact_match_light
+    description: >
+      This fact table captures high-level match data, including game outcomes, 
+      team and manager details, venues, attendance, and match dates. 
+      It links to dimensions for teams, managers, and venues for enriched context.
+      This model is used for analyzing match outcomes and team/manager performance.
+
+    columns:
+      - name: row_id
+        description: "Sequential identifier for ordering matches based on the date played."
+        tests:
+          - not_null
+          - unique
+
+      - name: GAME_ID
+        description: "Unique identifier for each match, sourced from the match dimension."
+        tests:
+          - not_null
+          - unique
+
+      - name: venue_id
+        description: "Identifier for the venue where the match was played, linked to `dim_venues`."
+        tests:
+          - not_null:
+              severity: warn
+          - relationships:
+              to: ref('dim_venues')
+              field: venue_id
+              severity: warn
+
+      - name: HOME_TEAM_ID
+        description: "Identifier for the home team, linked to `dim_teams`."
+        tests:
+          - not_null:
+              severity: warn
+          - relationships:
+              to: ref('dim_teams')
+              field: TEAM_ID
+              severity: warn
+
+      - name: AWAY_TEAM_ID
+        description: "Identifier for the away team, linked to `dim_teams`."
+        tests:
+          - not_null:
+              severity: warn
+          - relationships:
+              to: ref('dim_teams')
+              field: TEAM_ID
+              severity: warn
+
+      - name: home_manager_id
+        description: "Identifier for the manager of the home team, linked to `dim_managers`."
+        tests:
+          - not_null:
+              severity: warn
+          - relationships:
+              to: ref('dim_managers')
+              field: manager_id
+              severity: warn
+
+      - name: away_manager_id
+        description: "Identifier for the manager of the away team, linked to `dim_managers`."
+        tests:
+          - not_null:
+              severity: warn
+          - relationships:
+              to: ref('dim_managers')
+              field: manager_id
+              severity: warn
+
+      - name: attendance
+        description: "Number of spectators attending the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: played_on
+        description: "Date on which the match was played."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: gameOut
+        description: >
+          Outcome of the match from the home team's perspective:
+          'home win' if the home team won, 
+          'away win' if the away team won, 
+          'draw' if the match ended in a tie, 
+          'unknown' for undefined outcomes.
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: ['home win', 'away win', 'draw', 'unknown']
+              severity: warn
+
+  - name: fact_player_match
+    description: >
+      This fact table captures player-level match data, including player actions (goals, assists, cards),
+      minutes played, and match role (Starter, Sub, Squad). It links to dimensions for players, teams, 
+      and matches, enabling detailed player performance analysis.
+
+    columns:
+      - name: player_id
+        description: "Unique identifier for the player, linked to `dim_players`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_players')
+              field: player_id
+
+      - name: GAME_ID
+        description: "Unique identifier for the match, linked to `dim_match`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_match')
+              field: GAME_ID
+
+      - name: TEAM_ID
+        description: "Unique identifier for the team the player was assigned to, linked to `dim_teams`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_teams')
+              field: TEAM_ID
+
+      - name: ShirtNumber
+        description: "The jersey number worn by the player in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: YellowCards
+        description: "Number of yellow cards received by the player in the match."
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: [0, 1, 2] 
+              severity: warn
+
+      - name: RedCards
+        description: "Number of red cards received by the player in the match."
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: [0,1]
+              severity: warn
+
+      - name: Goals
+        description: "Total goals scored by the player in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: Assists
+        description: "Total assists made by the player in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: MinutesPlayed
+        description: "Total minutes played by the player in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: Player_MatchStatus
+        description: >
+          The raw status of the player for the match, as recorded in the source system.
+          Used to determine `player_matchRole`.
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: ['Played Subbed Off', 'Played Full Game', 'Played Subbed On', 
+                       'Played Subbed On and Subbed Off', 'Did Not Play']
+              severity: warn
+
+      - name: player_matchRole
+        description: >
+          Categorized role of the player in the match based on their participation:
+          - 'Starter': Started the match
+          - 'Sub': Came on as a substitute
+          - 'Squad': Was in the squad but did not play
+          - 'Unknown': Catch-all for unexpected statuses
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: ['Starter', 'Sub', 'Squad']
+              severity: warn
+
+  - name: fact_team_match
+    description: >
+      This fact table captures match-level data for each team, 
+      including goals scored, possession, match outcomes, and points earned.
+      Each match has two records: one for the home team and one for the away team.
+
+    columns:
+      - name: row_id
+        description: "Sequential identifier for each match-team record."
+        tests:
+          - not_null
+          - unique
+
+      - name: GAME_ID
+        description: "Unique identifier for each match, linked to `dim_match`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_match')
+              field: GAME_ID
+
+      - name: TEAM_ID
+        description: "Unique identifier for the team, linked to `dim_teams`."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_teams')
+              field: TEAM_ID
+
+      - name: scored
+        description: "Number of goals scored by the team in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: conceeded
+        description: "Number of goals conceded by the team in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: possession
+        description: "Ball possession percentage for the team."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: formation
+        description: "Tactical formation used by the team in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: GameRole
+        description: >
+          Indicates whether the team played at home or away:
+          - 1 = Home
+          - 2 = Away
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: [1, 2]
+              severity: warn
+
+      - name: Points
+        description: >
+          Points awarded based on the match result:
+          - 3 = Win
+          - 1 = Draw
+          - 0 = Loss
+        tests:
+          - not_null:
+              severity: warn
+          - accepted_values:
+              values: [0, 1, 3]
+              severity: warn

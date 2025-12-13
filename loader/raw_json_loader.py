@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables from loader/.env
 env_path = os.path.join(os.path.dirname(__file__), ".env")
-load_dotenv(env_path)
+if os.path.exists(env_path):
+    load_dotenv(env_path)
 
 ACCOUNT_NAME = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
 ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
@@ -141,17 +142,17 @@ def process_blob(container_name: str, blob_name: str):
 
 
 def main():
-    container = "raw"
-    prefix = "2024_2025"  # adjust if your folder is different
+    container = os.getenv("ADLS_CONTAINER", "raw")
+    prefix = os.getenv("ADLS_PREFIX", "2024_2025")  # default for local testing
 
     blobs = list_json_blobs(container, prefix)
-    print(f"Found {len(blobs)} JSON file(s) under '{prefix}'")
+    logger.info(f"Found {len(blobs)} JSON file(s) under '{prefix}'")
 
     for blob_name in blobs:
         try:
             process_blob(container, blob_name)
         except Exception as e:
-            print(f"Error processing {blob_name}: {e}")
+            logger.exception(f"Error processing {blob_name}: {e}")
 
 
 if __name__ == "__main__":

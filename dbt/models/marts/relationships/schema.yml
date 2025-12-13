@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: team_manager_relationships
+    description: "Tracks historical team-manager relationships with effective date ranges."
+    columns:
+      - name: team_manager_id
+        description: "Surrogate key for the relationship."
+        tests:
+          - unique
+          - not_null
+
+      - name: team_id
+        description: "Foreign key to dim_teams."
+        tests:
+          - relationships:
+              to: ref('dim_teams')
+              field: team_id
+              severity: warn
+          - not_null:
+              severity: warn
+
+      - name: manager_id
+        description: "Foreign key to dim_managers."
+        tests:
+          - relationships:
+              to: ref('dim_managers')
+              field: manager_id
+              severity: warn
+          - not_null:
+              severity: warn
+
+      - name: effective_date
+        description: "Start date of the manager's tenure."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: end_date
+        description: "End date of the manager's tenure."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: is_current
+        description: "True if the manager is still active."
+        tests:
+          - not_null:
+              severity: warn

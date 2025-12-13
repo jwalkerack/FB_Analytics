@@ -1,0 +1,184 @@
+version: 2
+
+sources:
+  - name: raw_match
+    schema: stg                         # <- schema that owns raw_files
+    tables:
+      - name: raw_files                 # <- actual table name in Azure
+        description: "Raw JSON data loaded from external sources"
+
+models:
+  - name: stg_match_results
+    description: "Staging table for raw football match data, extracting match details, team information, and match summaries from JSON data."
+    columns:
+      - name: match_id
+        description: "Unique identifier for each football match."
+        tests:
+          - unique
+          - not_null
+
+      - name: home_team_name
+        description: "Name of the home team participating in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: home_team_manager
+        description: "Name of the manager of the home team."
+
+      - name: home_team_formation
+        description: "Formation used by the home team (e.g., 4-4-2, 3-5-2)."
+
+      - name: home_team_score
+        description: "Final score achieved by the home team."
+        tests:
+          - not_null:
+              where: "was_game_postponed = FALSE"
+              severity: warn
+
+      - name: home_team_possession
+        description: "Percentage of ball possession by the home team, represented as a decimal (e.g., 0.55 for 55%)."
+        tests:
+          - not_null:
+              where: "was_game_postponed = FALSE"
+              severity: warn
+          - accepted_values:
+              values: [0, 1]
+              quote: false
+              severity: warn
+
+      - name: away_team_name
+        description: "Name of the away team participating in the match."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: away_team_manager
+        description: "Name of the manager of the away team."
+
+      - name: away_team_formation
+        description: "Formation used by the away team (e.g., 4-3-3, 4-5-1)."
+
+      - name: away_team_score
+        description: "Final score achieved by the away team."
+        tests:
+          - not_null:
+              where: "was_game_postponed = FALSE"
+              severity: warn
+
+      - name: away_team_possession
+        description: "Percentage of ball possession by the away team, represented as a decimal (e.g., 0.45 for 45%)."
+        tests:
+          - not_null:
+              where: "was_game_postponed = FALSE"
+              severity: warn
+          - accepted_values:
+              values: [0, 1]
+              quote: false
+              severity: warn
+
+      - name: was_game_postponed
+        description: "Boolean flag indicating whether the game was postponed (TRUE if postponed, FALSE otherwise)."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: played_on
+        description: "Date the match was played in the format 'Dy DD Mon YYYY'."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: league_name
+        description: "Name of the league in which the match was played."
+
+      - name: venue
+        description: "Venue or stadium where the match was held."
+
+      - name: attendance
+        description: "Number of attendees present at the match. Null if the game was postponed."
+        tests:
+          - not_null:
+              where: "was_game_postponed = FALSE"
+              severity: warn
+
+  - name: stg_player
+    description: "Staging table for player-level match data, including player performance, substitution details, and disciplinary records."
+    columns:
+      - name: player_name
+        description: "Full name of the player."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: match_id
+        description: "Unique identifier as sourced from bbc of the match in which the player participated."
+        tests:
+          - not_null
+
+      - name: team_name
+        description: "Name of the team the player belongs to (home or away)."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: team_number
+        description: "Shirt number of the player as a string (may contain formatting characters)."
+
+      - name: team_number1
+        description: "Shirt number of the player, cleaned and cast as an integer."
+
+      - name: started_game
+        description: "Boolean indicating if the player was in the starting lineup or if the player was in the match day squad."
+        tests:
+          - not_null:
+              severity: warn
+
+      - name: was_substituted
+        description: "Boolean indicating if the player was substituted out during the match."
+
+      - name: was_introduced
+        description: "Boolean indicating if the player was introduced into the game as a substitute."
+
+      - name: is_captain
+        description: "Boolean indicating if the player was the team captain."
+
+      - name: replaced_by
+        description: "Name of the player who replaced this player, if substituted."
+
+      - name: substitution_time
+        description: "Minute of the match when the substitution occurred."
+
+      - name: yellow_cards
+        description: "Number of yellow cards received by the player."
+
+      - name: yellow_card_minutes
+        description: "Comma-separated list of minutes when the player received yellow cards."
+
+      - name: red_cards
+        description: "Number of red cards received by the player."
+
+      - name: red_card_minutes
+        description: "Comma-separated list of minutes when the player received red cards."
+
+      - name: goals_count
+        description: "Total number of goals scored by the player in the match."
+
+      - name: goals_array
+        description: "Comma-separated list of minutes when the player scored goals."
+
+      - name: assists_count
+        description: "Total number of assists made by the player in the match."
+
+      - name: assists_array
+        description: "Comma-separated list of minutes when the player made assists."
+
+      - name: minutes_played
+        description: "Total number of minutes the player participated in the match."
+
+      - name: playing_as
+        description: "Indicates whether the player was on the 'home' or 'away' team."
+        tests:
+          - accepted_values:
+              values: ['home', 'away']
+              severity: warn

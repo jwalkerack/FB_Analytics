@@ -1,0 +1,117 @@
+version: 2
+
+models:
+  - name: dim_managers
+    description: "Dimension table for football team managers."
+    columns:
+      - name: manager_id
+        description: "Surrogate key for managers."
+        tests:
+          - unique
+          - not_null
+      - name: manager_name
+        description: "Cleaned-up name of the manager."
+        tests:
+          - not_null:
+              severity: warn
+
+  - name: dim_teams
+    description: "Dimension table for teams with league details."
+    columns:
+      - name: team_id
+        description: "Surrogate key for teams."
+        tests:
+          - unique
+          - not_null
+      - name: team_name
+        description: "Full name of the team."
+        tests:
+          - not_null:
+              severity: warn
+      - name: league_name
+        description: "Full name of the league."
+        tests:
+          - not_null:
+              severity: warn
+      - name: country_name
+        description: "Extracted first word of the league name (country)."
+        tests:
+          - not_null:
+              severity: warn
+      - name: short_name
+        description: "Remaining part of the league name."
+        tests:
+          - not_null:
+              severity: warn
+
+  - name: dim_venues
+    description: "Dimension table for football venues."
+    columns:
+      - name: venue_id
+        description: "Surrogate key for venues."
+        tests:
+          - unique
+          - not_null
+      - name: venue_name
+        description: "Full name of the venue."
+        tests:
+          - not_null:
+              severity: warn
+      - name: capacity
+        description: "Seating capacity of the venue (nullable for now)."
+        tests:
+          - not_null:
+              severity: warn
+      - name: metoffice
+        description: "MetOffice location identifier (nullable for now)."
+        tests:
+          - not_null:
+              severity: warn
+
+  - name: dim_players
+    description: "Dimension table for players."
+    columns:
+      - name: player_id
+        description: "Surrogate key for players."
+        tests:
+          - unique
+          - not_null
+      - name: player_key
+        description: "Composite key using player name and team name."
+        tests:
+          - not_null:
+              severity: warn
+      - name: player_name
+        description: "Player's full name."
+        tests:
+          - not_null:
+              severity: warn
+      - name: team_name
+        description: "Team the player belongs to."
+        tests:
+          - not_null:
+              severity: warn
+      - name: team_number
+        description: "Player's shirt number."
+        tests:
+          - not_null:
+              severity: warn
+
+  - name: dim_match
+    description: >
+      This dimension table contains a unique list of matches with a surrogate 
+      `game_id` generated using `ROW_NUMBER()`. It serves as a primary reference 
+      for match-related data in fact tables.
+
+    columns:
+      - name: game_id
+        description: "Surrogate key for each match, generated using ROW_NUMBER()."
+        tests:
+          - not_null
+          - unique  # Ensures no duplicate matches exist.
+
+      - name: bbc_id
+        description: "Original match identifier from the `match_results` source."
+        tests:
+          - not_null
+          - unique  # Ensures each match is distinct.

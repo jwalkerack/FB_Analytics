@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: players
+    description: "Flattened players data from JSON matches"
+    columns:
+      - name: PLAYER_NAME
+        description: "Player's name"
+      - name: MATCH_ID
+        description: "Match identifier"
+      - name: TEAM_NAME
+        description: "Team name"
+      - name: TEAM_NUMBER
+        description: "Player's shirt number"
+      - name: STARTED_GAME
+        description: "Whether player started the game"
+      - name: WAS_SUBSTITUTED
+        description: "Whether player was substituted"
+      - name: REPLACED_BY
+        description: "Player who replaced this player"
+      - name: YELLOW_CARDS
+        description: "Yellow card count"
+      - name: YELLOW_CARD_MINUTES
+        description: "Minutes of yellow cards"
+      - name: RED_CARDS
+        description: "Red card count"
+      - name: RED_CARD_MINUTES
+        description: "Minutes of red cards"
+      - name: GOALS_COUNT
+        description: "Number of goals scored"
+      - name: GOALS_ARRAY
+        description: "Array of goals"
+      - name: ASSISTS_COUNT
+        description: "Number of assists"
+      - name: ASSISTS_ARRAY
+        description: "Array of assists"
+      - name: MINUTES_PLAYED
+        description: "Total minutes played"
+      - name: PLAYING_AS
+        description: "'home' or 'away' team"
+  - name: match_results
+    description: "Flattened match details from JSON structure"
+    columns:
+      - name: MATCH_ID
+        description: "Unique Match Identifier"
+      - name: HOME_TEAM_NAME
+        description: "Home team name"
+      - name: HOME_TEAM_MANAGER
+        description: "Home team manager"
+      - name: HOME_TEAM_FORMATION
+        description: "Home team formation"
+      - name: HOME_TEAM_SCORE
+        description: "Home team score"
+      - name: HOME_TEAM_POSSESSION
+        description: "Home team possession percentage"
+      - name: AWAY_TEAM_NAME
+        description: "Away team name"
+      - name: AWAY_TEAM_MANAGER
+        description: "Away team manager"
+      - name: AWAY_TEAM_FORMATION
+        description: "Away team formation"
+      - name: AWAY_TEAM_SCORE
+        description: "Away team score"
+      - name: AWAY_TEAM_POSSESSION
+        description: "Away team possession percentage"
+      - name: WAS_GAME_POSTPONED
+        description: "Indicates if the match was postponed"
+      - name: PLAYED_ON
+        description: "Date the match was played"
+      - name: LEAGUE_NAME
+        description: "League name"
+      - name: VENUE
+        description: "Match venue"
+      - name: ATTENDANCE
+        description: "Match attendance count"
