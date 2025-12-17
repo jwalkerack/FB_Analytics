@@ -57,9 +57,13 @@ match_summary AS (
 
         -- Additional match details
         -- Rely on SQL Server's date parsing of the played_on string
-        MAX(
-            TRY_CONVERT(date, JSON_VALUE(m.match_value, '$.played_on'))
-        ) AS PLAYED_ON,
+MAX(
+  TRY_CONVERT(
+    date,
+    SUBSTRING(JSON_VALUE(m.match_value, '$.played_on'), 5, 11),
+    106
+  )
+) AS PLAYED_ON,
 
         MAX(JSON_VALUE(m.match_value, '$.League_Name')) AS LEAGUE_NAME,
         MAX(JSON_VALUE(m.match_value, '$.venue'))       AS VENUE,
