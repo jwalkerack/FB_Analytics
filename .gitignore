@@ -10,5 +10,5 @@ dbt_packages/
 
 # Secrets
 .env
-profiles.yml
+
 .dockerignore
