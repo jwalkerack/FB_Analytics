@@ -143,7 +143,7 @@ def process_blob(container_name: str, blob_name: str):
 
 def main():
     container = os.getenv("ADLS_CONTAINER", "raw")
-    prefix = os.getenv("ADLS_PREFIX", "2024_2025")  # default for local testing
+    prefix = os.getenv("ADLS_PREFIX", "2025_2026")  # default for local testing
 
     blobs = list_json_blobs(container, prefix)
     logger.info(f"Found {len(blobs)} JSON file(s) under '{prefix}'")
