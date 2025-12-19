@@ -27,4 +27,4 @@ WORKDIR /app/dbt
 ENV DBT_PROFILES_DIR=/app/dbt
 
 ENTRYPOINT ["dbt"]
-
+CMD ["run"]
