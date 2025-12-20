@@ -9,44 +9,47 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def return_player_lists(soup):
+    """
+    Returns [home_starters, home_subs, away_starters, away_subs]
+    Assumes exactly:
+      - 2 TeamPlayers sections (starters)
+      - 2 SubstitutesSection sections (subs)
+    """
     logging.info("Entering function: return_player_lists")
-    try:
-        # 1. Find the main lineups grid container
-        container = soup.find(
-            "div",
-            class_=re.compile(r"GridContainer-LineupsGridContainer")
-        )
-        if not container:
-            logging.error("Could not find lineups grid container.")
-            return None
 
-        # 2. Find all player lists inside that container
-        #    Prefer the stable data-testid if present, but fall back to class name.
-        player_lists = container.find_all(
-            "ul",
-            attrs={"data-testid": "player-list"}
-        )
-
-        # Fallback: if for some reason data-testid disappeared, use 'PlayerList' in class
-        if not player_lists:
-            player_lists = container.find_all(
-                "ul",
-                class_=re.compile(r"PlayerList")
-            )
-
-        logging.debug(f"Found {len(player_lists)} player lists inside lineups container.")
-
-        if len(player_lists) != 4:
-            logging.warning(
-                f"Expected 4 player lists (home starters, home subs, away starters, away subs), "
-                f"but found {len(player_lists)}."
-            )
-
-        return player_lists
-
-    except Exception as e:
-        logging.error(f"Error in return_player_lists: {e}", exc_info=True)
+    root = soup.select_one('div[data-testid="styled-match-lineup"]')
+    if not root:
+        logging.error("styled-match-lineup not found")
         return None
+
+    main_section = root.find("section")
+    if not main_section:
+        logging.error("Main lineup section not found")
+        return None
+
+    # --- Starters ---
+    starters = main_section.select('section[class*="TeamPlayers"]')
+    if len(starters) < 2:
+        logging.error(f"Expected 2 TeamPlayers (starters), found {len(starters)}")
+        return None
+
+    home_starters_ul = starters[0].select_one('ul[data-testid="player-list"]')
+    away_starters_ul = starters[1].select_one('ul[data-testid="player-list"]')
+
+    # --- Subs ---
+    subs_sections = main_section.select('section[class*="SubstitutesSection"]')
+    if len(subs_sections) < 2:
+        logging.error(f"Expected 2 SubstitutesSection (subs), found {len(subs_sections)}")
+        return None
+
+    home_subs_ul = subs_sections[0].select_one('ul[data-testid="player-list"]')
+    away_subs_ul = subs_sections[1].select_one('ul[data-testid="player-list"]')
+
+    if not all([home_starters_ul, home_subs_ul, away_starters_ul, away_subs_ul]):
+        logging.error("One or more player lists missing")
+        return None
+
+    return [home_starters_ul, home_subs_ul, away_starters_ul, away_subs_ul]
 
 
 def clean_text(text):
@@ -63,62 +66,110 @@ def clean_text(text):
 def player_extraction_from_list(player_items):
     logging.info("Entering function: player_extraction_from_list")
     players_data = {}
+
     try:
         for player_item in player_items:
-            player_name_tag = player_item.find('span', class_='ssrcss-15c46u3-PlayerName')
-            player_name = player_name_tag.get_text(strip=True) if player_name_tag else "Unknown"
-            playerNameCleaned = player_name.replace('(c)', '').strip()
 
-            is_captain = '(c)' in player_item.get_text()
+            # ----------------------------
+            # 1. Player name (CLEAN, SINGLE SCOPE)
+            # ----------------------------
+            #name_span = player_item.select_one('span[class*="PlayerName"]')
+            #player_name = name_span.get_text(strip=True) if name_span else "Unknown"
+            name_span = player_item.select_one(
+                'span[class*="-PlayerName"]:not([class*="Wrapper"])'
+            )
+            player_name = name_span.get_text(strip=True) if name_span else "Unknown"
+            # ----------------------------
+            # 2. Captain detection (STRUCTURAL, SEPARATE)
+            # ----------------------------
+            captain_marker = player_item.select_one(
+                'span[role="text"] > span[aria-hidden="true"]'
+            )
+            is_captain = bool(
+                captain_marker and captain_marker.get_text(strip=True) == "(c)"
+            )
 
-            player_number_tag = player_item.find('span', class_=re.compile(r'PlayerNumber'))
-            player_number = player_number_tag.get_text(strip=True) if player_number_tag else "N/A"
+            # ----------------------------
+            # 3. Shirt number
+            # ----------------------------
+            shirt_number_div = player_item.select_one(
+                'div[aria-hidden="true"][class*="ShirtNumber"]'
+            )
+            shirt_number = (
+                shirt_number_div.get_text(strip=True)
+                if shirt_number_div else "N/A"
+            )
 
+            # ----------------------------
+            # 4. Cards
+            # ----------------------------
             yellow_cards = []
-            yellow_card_icons = player_item.find_all('img', {'src': re.compile('yellowcard')})
-            for card in yellow_card_icons:
-                card_time_tag = card.find_next('span', {'aria-hidden': 'true'})
-                if card_time_tag:
-                    yellow_cards.append(card_time_tag.get_text(strip=True))
-
             red_cards = []
-            red_card_icons = player_item.find_all('img', {'src': re.compile('second-yellow-card|redcard')})
-            for card in red_card_icons:
-                card_time_tag = card.find_next('span', {'aria-hidden': 'true'})
-                if card_time_tag:
-                    red_cards.append(card_time_tag.get_text(strip=True))
 
+            for card in player_item.select('img[src*="yellowcard"]'):
+                minute = card.find_next('span', {'aria-hidden': 'true'})
+                if minute:
+                    yellow_cards.append(minute.get_text(strip=True))
+
+            for card in player_item.select('img[src*="redcard"], img[src*="second-yellow-card"]'):
+                minute = card.find_next('span', {'aria-hidden': 'true'})
+                if minute:
+                    red_cards.append(minute.get_text(strip=True))
+
+            # ----------------------------
+            # 5. Substitutions
+            # ----------------------------
             substitutions = []
-            substitution_wrappers = player_item.find_all('span', class_='ssrcss-mm94gd-Wrapper')
-            for sub_event in substitution_wrappers:
-                sub_text = sub_event.get_text(strip=True)
-                match = re.search(r"(.+?) (\d+'(?:\+\d+)?)", sub_text)
+            sub_container = player_item.select_one('span[class*="PlayerSubstitutes"]')
 
-                if match:
-                    replaced_by = match.group(1)
-                    substitution_time = match.group(2).replace("'", "")
+            if sub_container:
+                for wrapper in sub_container.select('span[class*="Wrapper"]'):
+                    visible = wrapper.select_one('span[aria-hidden="true"]')
+                    sub_text = (
+                        visible.get_text(" ", strip=True)
+                        if visible else wrapper.get_text(" ", strip=True)
+                    )
 
-                    substitutions.append({
-                        "playerName": player_name,
-                        "WasSubstituted": True,
-                        "SubstitutionTime": int(substitution_time),
-                        "ReplacedBy": replaced_by
-                    })
+                    match = re.search(r"(.+?)\s+(\d+'(?:\+\d+)?)$", sub_text)
+                    if match:
+                        replaced_by = match.group(1).strip()
+                        raw_time = match.group(2).replace("'", "")
 
-            players_data[playerNameCleaned] = {
-                'substitutions_info': substitutions,
-                'RedCardMinutes': red_cards,
-                'RedCards': len(red_cards),
-                'YellowCardMinutes': yellow_cards,
-                'YellowCards': len(yellow_cards),
-                'is_captain': is_captain,
-                'ShirtNumber': player_number
+                        try:
+                            sub_time = int(raw_time)
+                        except ValueError:
+                            base = raw_time.split("+", 1)[0]
+                            sub_time = int(base) if base.isdigit() else 0
+
+                        substitutions.append({
+                            "playerName": player_name,
+                            "WasSubstituted": True,
+                            "SubstitutionTime": sub_time,
+                            "ReplacedBy": replaced_by
+                        })
+
+            # ----------------------------
+            # 6. Store player (KEYED BY NAME – as per your current design)
+            # ----------------------------
+            players_data[player_name] = {
+                "substitutions_info": substitutions,
+                "RedCardMinutes": red_cards,
+                "RedCards": len(red_cards),
+                "YellowCardMinutes": yellow_cards,
+                "YellowCards": len(yellow_cards),
+                "is_captain": is_captain,
+                "ShirtNumber": shirt_number
             }
 
         return players_data
+
     except Exception as e:
-        logging.error(f"Error in player_extraction_from_list: {e}")
+        logging.error(
+            f"Error in player_extraction_from_list: {e}",
+            exc_info=True
+        )
         return players_data
+
 
 def starter_sub_player_merge(starters, Subs):
     logging.info("Entering function: starter_sub_player_merge")
@@ -364,7 +415,61 @@ def extract_goal_events_v2(soup, event_type_class):
 
 
 
+def extract_goal_events_as_events(soup):
+    """
+    Extract ALL goal events as a unified list.
 
+    Each event:
+    {
+      "scorer": "D. Daniels",
+      "time_text": "7' og" | "45'+4" | "58' pen" | "90'+5" ...,
+      "type": "NORMAL" | "PENALTY" | "OWN_GOAL",
+      "credited_team_side": "home" | "away"
+    }
+    """
+    events = []
+    logging.info("Entering function : extract_goal_events_as_events")
+
+    def parse_side(container_substring: str, credited_side: str):
+        block = soup.select_one(f'div[class*="{container_substring}"]')
+        if not block:
+            return
+
+        for item in block.select('li[class*="StyledAction"]'):
+            scorer_span = item.find('span', role='text')
+            if not scorer_span:
+                continue
+            scorer = clean_text(scorer_span.get_text(strip=True))
+
+            # Visible bracket text blocks, e.g. "(58' pen)" / "(7' og)" / "(45'+4)"
+            time_spans = item.find_all('span', class_=re.compile(r'TextBlock'))
+            raw = " ".join(ts.get_text(" ", strip=True) for ts in time_spans).strip()
+
+            # Clean the raw: remove parentheses and weird whitespace
+            time_text = raw.replace("(", "").replace(")", "").strip().lower()
+
+            # Hidden descriptive text e.g. "Penalty 58 minutes" / "Own Goal 7 minutes" / "Goal 31 minutes"
+            hidden_span = item.find('span', class_=re.compile(r'VisuallyHidden'))
+            hidden_text = hidden_span.get_text(" ", strip=True).lower() if hidden_span else ""
+
+            # Classify type (prefer hidden; fallback to time_text)
+            if "own goal" in hidden_text or " og" in time_text:
+                goal_type = "OWN_GOAL"
+            elif "penalty" in hidden_text or " pen" in time_text:
+                goal_type = "PENALTY"
+            else:
+                goal_type = "NORMAL"
+
+            events.append({
+                "scorer": scorer,
+                "time_text": time_text,          # <-- keep as raw text
+                "type": goal_type,
+                "credited_team_side": credited_side
+            })
+
+    parse_side("KeyEventsHome", "home")
+    parse_side("KeyEventsAway", "away")
+    return events
 
 
 
@@ -465,47 +570,62 @@ def generate_player_dictionaries(soup):
             logging.error("Team lists are incomplete or missing.")
             return [{}, {}]
 
+        # ---- Extract starters/subs ----
         HomeTeamStarters = player_extraction_from_list(get_team_lists[0])
         HomeTeamSubs = player_extraction_from_list(get_team_lists[1])
         AwayTeamStarters = player_extraction_from_list(get_team_lists[2])
         AwayTeamSubs = player_extraction_from_list(get_team_lists[3])
 
+        # ---- Merge + compute minutes/sub info ----
         HomeFullTeamUnprocessed = starter_sub_player_merge(HomeTeamStarters, HomeTeamSubs)
         AwayFullTeamUnprocessed = starter_sub_player_merge(AwayTeamStarters, AwayTeamSubs)
 
         HomeTeamProcessed = process_sub_data(HomeTeamStarters, HomeFullTeamUnprocessed)
         AwayTeamProcessed = process_sub_data(AwayTeamStarters, AwayFullTeamUnprocessed)
 
-        HomeGoals = extract_goal_events_v2(soup, 'KeyEventsHome')
-        print (HomeGoals)
-        HomeAssists = extract_players_and_assists(soup, ".*GroupedHomeEvent e1ojeme81*")
-        for player in HomeGoals:
-            if player in HomeTeamProcessed:
-                try:
-                    HomeTeamProcessed[player]['Goals'] = HomeGoals[player]
-                except:
-                    pass
-            else:
-                logging.warning(f"Goal scorer {player} not found in HomeTeamProcessed.")
+        # ----------------------------------------------------------
+        # GOALS (event-first, supports OWN GOALS + PENALTIES)
+        # ----------------------------------------------------------
+        goal_events = extract_goal_events_as_events(soup)
 
+        def find_player_team(player_name: str):
+            """Return (team_dict, team_label) where team_label is 'home' or 'away'."""
+            if player_name in HomeTeamProcessed:
+                return HomeTeamProcessed, "home"
+            if player_name in AwayTeamProcessed:
+                return AwayTeamProcessed, "away"
+            return None, None
+
+        unresolved_goal_events = []
+
+        for ev in goal_events:
+            scorer = ev.get("scorer", "Unknown")
+            team_dict, _ = find_player_team(scorer)
+
+            if not team_dict:
+                unresolved_goal_events.append(ev)
+                continue
+
+            team_dict[scorer].setdefault("Goals", []).append(ev)
+
+        # Optional: keep unresolved goals for QA/debugging
+        if unresolved_goal_events:
+            logging.warning(
+                f"{len(unresolved_goal_events)} goal events could not be matched to a player."
+            )
+            HomeTeamProcessed.setdefault("_unresolved_goal_events", []).extend(unresolved_goal_events)
+
+        # ----------------------------------------------------------
+        # ASSISTS (keep your existing logic as-is)
+        # ----------------------------------------------------------
+        HomeAssists = extract_players_and_assists(soup, ".*GroupedHomeEvent e1ojeme81*")
         for player in HomeAssists:
             if player in HomeTeamProcessed:
                 HomeTeamProcessed[player]['Assists'] = HomeAssists[player]
             else:
                 logging.warning(f"Assist provider {player} not found in HomeTeamProcessed.")
 
-        AwayGoals = extract_goal_events_v2(soup, 'KeyEventsAway')
         AwayAssists = extract_players_and_assists(soup, ".*GroupedAwayEvent e1ojeme80*")
-        print(AwayGoals)
-        for player in AwayGoals:
-            if player in AwayTeamProcessed:
-                try:
-                    AwayTeamProcessed[player]['Goals'] = AwayGoals[player]
-                except:
-                    pass
-            else:
-                logging.warning(f"Goal scorer {player} not found in AwayTeamProcessed.")
-
         for player in AwayAssists:
             if player in AwayTeamProcessed:
                 AwayTeamProcessed[player]['Assists'] = AwayAssists[player]
@@ -513,6 +633,7 @@ def generate_player_dictionaries(soup):
                 logging.warning(f"Assist provider {player} not found in AwayTeamProcessed.")
 
         return [HomeTeamProcessed, AwayTeamProcessed]
+
     except Exception as e:
-        logging.error(f"Error in generate_player_dictionaries: {e}")
+        logging.error(f"Error in generate_player_dictionaries: {e}", exc_info=True)
         return [{}, {}]

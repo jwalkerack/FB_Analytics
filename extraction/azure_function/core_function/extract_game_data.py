@@ -227,21 +227,27 @@ def _extract_manager_from_details(details_block):
 
 def get_managers(soup):
     """
-    Returns [home_manager, away_manager].
+    Returns [home_manager, away_manager] using stable BBC data-testid hooks.
     """
     try:
-        # Both home and away TeamDetails blocks
-        details_blocks = soup.find_all(class_=re.compile(r'TeamDetails'))
-        home_details = details_blocks[0] if len(details_blocks) > 0 else None
-        away_details = details_blocks[1] if len(details_blocks) > 1 else None
+        def extract_manager(testid: str):
+            node = soup.find(attrs={"data-testid": testid})
+            if not node:
+                return None
 
-        home_manager = _extract_manager_from_details(home_details)
-        away_manager = _extract_manager_from_details(away_details)
+            # manager name is in the value span
+            value = node.find(class_=re.compile(r"TeamDetailsValue"))
+            return clean_text(value.get_text(strip=True)) if value else clean_text(node.get_text(strip=True))
+
+        home_manager = extract_manager("match-lineups-home-manager")
+        away_manager = extract_manager("match-lineups-away-manager")
 
         return [home_manager, away_manager]
+
     except Exception as e:
         logger.error(f"Error in get_managers: {e}", exc_info=True)
         return [None, None]
+
 # ----------------------------------------------
 # 3. Master Function: GetGameData
 # ----------------------------------------------
