@@ -417,60 +417,113 @@ def extract_goal_events_v2(soup, event_type_class):
 
 def extract_goal_events_as_events(soup):
     """
-    Extract ALL goal events as a unified list.
+    OPTION A (fixed): Use visible time tokens from TextBlock spans (raw-ish),
+    and hidden text ONLY as the definitive marker for Goal / Own Goal / Penalty.
 
-    Each event:
-    {
-      "scorer": "D. Daniels",
-      "time_text": "7' og" | "45'+4" | "58' pen" | "90'+5" ...,
-      "type": "NORMAL" | "PENALTY" | "OWN_GOAL",
-      "credited_team_side": "home" | "away"
-    }
+    Emits ONE event per timestamp token.
     """
     events = []
-    logging.info("Entering function : extract_goal_events_as_events")
+    logging.info("Entering function: extract_goal_events_as_events")
 
-    def parse_side(container_substring: str, credited_side: str):
+    GOAL_DESC_RE = re.compile(r"^(Goal|Own Goal|Penalty)\b", re.IGNORECASE)
+
+    # Parse a time token from a TextBlock chunk like:
+    #   "( 26' )", "(52' pen)", "(49' og)", "(90'+3)"
+    # Accept both ' and ’, allow spaces, allow +extra, allow pen/og
+    TIME_IN_TEXTBLOCK_RE = re.compile(
+        r"(\d+\s*[\'\u2019]\s*(?:\+\s*\d+)?\s*(?:pen|og)?)",
+        re.IGNORECASE
+    )
+
+    def opposite(side: str) -> str:
+        return "away" if side == "home" else "home"
+
+    def classify_from_desc(desc_text: str) -> str:
+        dt = (desc_text or "").strip().lower()
+        if dt.startswith("own goal"):
+            return "OWN_GOAL"
+        if dt.startswith("penalty"):
+            return "PENALTY"
+        return "NORMAL"
+
+    def get_event_desc_text(item) -> str:
+        # Look for visually-hidden spans whose class contains "VisuallyHidden"
+        for vh in item.select('span[class*="VisuallyHidden"]'):
+            txt = vh.get_text(" ", strip=True)
+            if GOAL_DESC_RE.match(txt):
+                return txt
+        return ""
+
+    def extract_time_tokens_from_item(item) -> list[str]:
+        """
+        Pull raw-ish time tokens from visible TextBlock spans.
+        Supports multiple goals in one row (multiple TextBlocks).
+        """
+        tokens = []
+
+        for tb in item.select('span[class*="TextBlock"]'):
+            txt = tb.get_text(" ", strip=True)
+            # txt can include parentheses and spaces, e.g. "( 26' )"
+            m = TIME_IN_TEXTBLOCK_RE.search(txt)
+            if m:
+                tok = m.group(1).strip()
+                # minimal cleanup: collapse repeated whitespace
+                tok = " ".join(tok.split())
+                tokens.append(tok)
+
+        # De-dupe while preserving order (sometimes markup repeats)
+        seen = set()
+        out = []
+        for t in tokens:
+            if t not in seen:
+                seen.add(t)
+                out.append(t)
+        return out
+
+    def parse_side(container_substring: str, container_side: str):
         block = soup.select_one(f'div[class*="{container_substring}"]')
         if not block:
+            logging.warning(f"[goals] No block found for {container_substring}")
             return
 
-        for item in block.select('li[class*="StyledAction"]'):
-            scorer_span = item.find('span', role='text')
+        items = block.select('li[class*="StyledAction"]')
+        logging.info(f"[goals] {container_substring} li_total={len(items)}")
+
+        for item in items:
+            scorer_span = item.find("span", role="text")
             if not scorer_span:
                 continue
             scorer = clean_text(scorer_span.get_text(strip=True))
 
-            # Visible bracket text blocks, e.g. "(58' pen)" / "(7' og)" / "(45'+4)"
-            time_spans = item.find_all('span', class_=re.compile(r'TextBlock'))
-            raw = " ".join(ts.get_text(" ", strip=True) for ts in time_spans).strip()
+            desc_text = get_event_desc_text(item)
+            if not GOAL_DESC_RE.match(desc_text or ""):
+                continue
 
-            # Clean the raw: remove parentheses and weird whitespace
-            time_text = raw.replace("(", "").replace(")", "").strip().lower()
+            goal_type = classify_from_desc(desc_text)
+            credited_side = opposite(container_side) if goal_type == "OWN_GOAL" else container_side
 
-            # Hidden descriptive text e.g. "Penalty 58 minutes" / "Own Goal 7 minutes" / "Goal 31 minutes"
-            hidden_span = item.find('span', class_=re.compile(r'VisuallyHidden'))
-            hidden_text = hidden_span.get_text(" ", strip=True).lower() if hidden_span else ""
+            raw_tokens = extract_time_tokens_from_item(item)
+            if not raw_tokens:
+                # keep this debug; it’s the only place goals could still drop
+                logging.debug(
+                    f"[goals] NO time tokens | side={container_side} scorer={scorer!r} "
+                    f"desc={desc_text!r} full_text={item.get_text(' ', strip=True)!r}"
+                )
+                continue
 
-            # Classify type (prefer hidden; fallback to time_text)
-            if "own goal" in hidden_text or " og" in time_text:
-                goal_type = "OWN_GOAL"
-            elif "penalty" in hidden_text or " pen" in time_text:
-                goal_type = "PENALTY"
-            else:
-                goal_type = "NORMAL"
-
-            events.append({
-                "scorer": scorer,
-                "time_text": time_text,          # <-- keep as raw text
-                "type": goal_type,
-                "credited_team_side": credited_side
-            })
+            for tok in raw_tokens:
+                events.append({
+                    "scorer": scorer,
+                    "time_text": tok,   # raw-ish token (e.g. "26'", "52' pen", "90'+3")
+                    "type": goal_type,
+                    "credited_team_side": credited_side
+                })
 
     parse_side("KeyEventsHome", "home")
     parse_side("KeyEventsAway", "away")
-    return events
 
+    logging.info(f"[goals] TOTAL events emitted={len(events)}")
+    return events
 
 
 
