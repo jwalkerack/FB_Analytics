@@ -67,7 +67,7 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_3B5CE7EDC5C84250B48BA706996A724A }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5FC3C9E6506E4802881A3F9988969F96 }}
 
-      - name: Debug: show Azure context and locate the Function App
+      - name: Debug show Azure context and locate the Function App
         uses: azure/CLI@v2
         with:
           inlineScript: |
@@ -92,3 +92,4 @@ jobs:
           app-name: fb-analytics-func-dev
           slot-name: staging
           package: release.zip
+
