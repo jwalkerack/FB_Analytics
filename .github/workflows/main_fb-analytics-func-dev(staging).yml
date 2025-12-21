@@ -67,9 +67,22 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_3B5CE7EDC5C84250B48BA706996A724A }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5FC3C9E6506E4802881A3F9988969F96 }}
 
+      - name: Sanity check Azure context + find Function App
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            echo "=== account show ==="
+            az account show -o table
+            echo "=== functionapp list (filtered) ==="
+            az functionapp list --query "[?name=='fb-analytics-func-dev'].{name:name, rg:resourceGroup, loc:location}" -o table
+            echo "=== resource list by name ==="
+            az resource list --name fb-analytics-func-dev --query "[].{name:name,type:type,rg:resourceGroup,id:id}" -o table
+
+
       - name: Deploy to Azure Functions (staging slot)
         uses: Azure/functions-action@v1
         with:
           app-name: fb-analytics-func-dev
           slot-name: staging
           package: release.zip
+
