@@ -73,6 +73,7 @@ jobs:
           inlineScript: |
             echo "== WHOAMI =="
             az ad signed-in-user show --query "{userPrincipalName:userPrincipalName, id:id}" -o json || true
+
             echo "== ACCOUNT CONTEXT =="
             az account show --query "{name:name, id:id, tenantId:tenantId, user:user.name}" -o json
 
@@ -85,12 +86,9 @@ jobs:
             echo "== SLOT LOOKUP =="
             az functionapp deployment slot list -g rg-fb-analytics-dev -n fb-analytics-func-dev -o table
 
-
       - name: Deploy to Azure Functions (staging slot)
         uses: Azure/functions-action@v1
         with:
           app-name: fb-analytics-func-dev
           slot-name: staging
           package: release.zip
-
-
